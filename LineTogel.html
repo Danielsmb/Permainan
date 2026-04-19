@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS Online - Live Chat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a26;
+            --bg-chat: #141420;
+            --accent: #e6a817;
+            --accent-dim: rgba(230,168,23,0.15);
+            --accent-glow: rgba(230,168,23,0.3);
+            --text-primary: #f0f0f5;
+            --text-secondary: #8888a0;
+            --text-muted: #555570;
+            --border: #2a2a3a;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --bot-bubble: #1e1e2e;
+            --user-bubble: #2a2210;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Background effects */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(ellipse at 20% 50%, rgba(230,168,23,0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(230,168,23,0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(100,50,200,0.02) 0%, transparent 50%);
+            animation: bgShift 20s ease-in-out infinite alternate;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes bgShift {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-2%, -1%) rotate(2deg); }
+        }
+
+        .chat-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            max-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+        }
+
+        @media (min-width: 520px) {
+            .chat-container {
+                height: 96vh;
+                max-height: 900px;
+                border-radius: 20px;
+                border: 1px solid var(--border);
+                box-shadow: 
+                    0 0 80px rgba(230,168,23,0.06),
+                    0 25px 60px rgba(0,0,0,0.5);
+            }
+        }
+
+        /* Header */
+        .chat-header {
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #1a1a28 0%, #141420 100%);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-shrink: 0;
+        }
+
+        .header-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--accent), #d4940f);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #000;
+            font-weight: 800;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .header-avatar::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 14px;
+            height: 14px;
+            background: var(--success);
+            border: 2.5px solid var(--bg-secondary);
+            border-radius: 50%;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+            50% { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+        }
+
+        .header-info h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+        }
+
+        .header-info p {
+            font-size: 12px;
+            color: var(--success);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .header-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+        }
+
+        .header-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .header-btn:hover {
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-color: rgba(230,168,23,0.3);
+        }
+
+        /* Chat area */
+        .chat-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background: var(--bg-chat);
+            scroll-behavior: smooth;
+        }
+
+        .chat-body::-webkit-scrollbar { width: 4px; }
+        .chat-body::-webkit-scrollbar-track { background: transparent; }
+        .chat-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        /* Date separator */
+        .date-sep {
+            text-align: center;
+            margin: 12px 0;
+        }
+
+        .date-sep span {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 4px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+
+        /* Messages */
+        .msg-row {
+            display: flex;
+            gap: 10px;
+            max-width: 88%;
+            animation: msgIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(12px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .msg-row.bot { align-self: flex-start; }
+        .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
+
+        .msg-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+
+        .msg-row.bot .msg-avatar {
+            background: linear-gradient(135deg, var(--accent), #d4940f);
+            color: #000;
+        }
+
+        .msg-row.user .msg-avatar {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: #fff;
+        }
+
+        .msg-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .msg-bubble {
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 13.5px;
+            line-height: 1.65;
+            letter-spacing: -0.005em;
+            word-break: break-word;
+        }
+
+        .msg-row.bot .msg-bubble {
+            background: var(--bot-bubble);
+            border: 1px solid var(--border);
+            border-top-left-radius: 4px;
+            color: var(--text-primary);
+        }
+
+        .msg-row.user .msg-bubble {
+            background: linear-gradient(135deg, #3d2e0a, #2a2210);
+            border: 1px solid rgba(230,168,23,0.2);
+            border-top-right-radius: 4px;
+            color: #f5e6b8;
+        }
+
+        .msg-time {
+            font-size: 10px;
+            color: var(--text-muted);
+            padding: 0 4px;
+        }
+
+        .msg-row.user .msg-time { text-align: right; }
+
+        /* Typing indicator */
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            padding: 0 16px;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .typing-indicator.show { display: flex; }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px;
+            background: var(--bot-bubble);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            border-top-left-radius: 4px;
+        }
+
+        .typing-dots span {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            animation: typingBounce 1.2s ease-in-out infinite;
+        }
+
+        .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-6px); opacity: 1; }
+        }
+
+        /* Quick replies */
+        .quick-replies {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px 16px 4px;
+        }
+
+        .quick-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+            color: var(--text-secondary);
+            font-size: 12.5px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+        }
+
+        .quick-btn:hover {
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-color: rgba(230,168,23,0.3);
+            transform: translateY(-1px);
+        }
+
+        .quick-btn:active { transform: scale(0.97); }
+
+        /* Input area */
+        .chat-input-area {
+            padding: 14px 16px;
+            background: linear-gradient(135deg, #1a1a28 0%, #141420 100%);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 6px 6px 6px 18px;
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: rgba(230,168,23,0.4);
+            box-shadow: 0 0 0 3px rgba(230,168,23,0.08);
+        }
+
+        .chat-input {
+            flex: 1;
+            background: none;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            padding: 8px 0;
+            resize: none;
+            max-height: 100px;
+            line-height: 1.5;
+        }
+
+        .chat-input::placeholder { color: var(--text-muted); }
+
+        .send-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, var(--accent), #d4940f);
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover { transform: scale(1.05); box-shadow: 0 4px 15px rgba(230,168,23,0.3); }
+        .send-btn:active { transform: scale(0.95); }
+        .send-btn:disabled { opacity: 0.3; cursor: default; transform: none; box-shadow: none; }
+
+        .input-hint {
+            text-align: center;
+            font-size: 10.5px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            letter-spacing: 0.02em;
+        }
+
+        /* Floating particles */
+        .particle {
+            position: fixed;
+            width: 2px;
+            height: 2px;
+            border-radius: 50%;
+            background: var(--accent);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Scroll to bottom btn */
+        .scroll-bottom {
+            position: absolute;
+            bottom: 90px;
+            right: 20px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            z-index: 5;
+            transition: all 0.2s;
+        }
+
+        .scroll-bottom.show { display: flex; }
+        .scroll-bottom:hover { background: var(--accent-dim); color: var(--accent); }
+
+        @media (max-width: 520px) {
+            .chat-container { max-width: 100%; border: none; border-radius: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <!-- Header -->
+    <div class="chat-header">
+        <div class="header-avatar">CS</div>
+        <div class="header-info">
+            <h3>Customer Service</h3>
+            <p><i class="fas fa-circle" style="font-size:6px"></i> Online - Siap Melayani</p>
+        </div>
+        <div class="header-actions">
+            <button class="header-btn" onclick="clearChat()" title="Bersihkan Chat"><i class="fas fa-trash-can"></i></button>
+        </div>
+    </div>
+
+    <!-- Chat Body -->
+    <div class="chat-body" id="chatBody">
+        <div class="date-sep"><span id="dateLabel"></span></div>
+    </div>
+
+    <!-- Typing Indicator -->
+    <div class="typing-indicator" id="typingIndicator">
+        <div class="msg-avatar" style="background:linear-gradient(135deg,var(--accent),#d4940f);color:#000;width:32px;height:32px;border-radius:10px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">CS</div>
+        <div class="typing-dots">
+            <span></span><span></span><span></span>
+        </div>
+    </div>
+
+    <!-- Scroll to bottom -->
+    <button class="scroll-bottom" id="scrollBtn" onclick="scrollToBottom()"><i class="fas fa-chevron-down"></i></button>
+
+    <!-- Input Area -->
+    <div class="chat-input-area">
+        <div class="input-wrapper">
+            <textarea class="chat-input" id="chatInput" placeholder="Ketik pesan, bosku..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+        </div>
+        <div class="input-hint">Dilayani oleh CS Online 24 Jam</div>
+    </div>
+</div>
+
+<script>
+// =============================================
+// DATABASE PENGETAHUAN PERMAINAN JUDI ONLINE
+// =============================================
+
+const knowledgeBase = [
+    // === TOGEL ===
+    {
+        keywords: ["togel", "lotre", "lottery", "tebak angka", "nomor", "angka togel"],
+        response: `Bosku, togel atau Toto Gelap adalah permainan menebak angka yang akan keluar. Di platform kami tersedia beberapa pasaran resmi:\n\n📌 **Pasaran Populer:**\n• **SGP (Singapore)** - Buka setiap Senin, Rabu, Kamis, Sabtu, Minggu pukul 17:45 WIB\n• **HK (Hongkong)** - Buka setiap hari pukul 23:00 WIB\n• **SYDNEY** - Buka setiap hari pukul 13:50 WIB\n• **CAMBODIA** - Buka setiap hari pukul 11:50 WIB\n• **TAIWAN** - Buka setiap hari pukul 20:45 WIB\n• **CHINA** - Buka setiap hari pukul 15:30 WIB\n\n📌 **Jenis Taruhan Togel:**\n• **4D/3D/2D** - Menebak 4, 3, atau 2 angka (hadiah sangat besar)\n• **Colok Bebas** - Menebak 1 angka di posisi manapun\n• **Colok Jitu** - Menebak 1 angka di posisi tepat\n• **Colok Naga** - Menebak 3 angka bebas posisi\n• **Shio** - Menebak shio dari 2D belakang\n• **Tengah/Tepi** - Menebab nilai tengah atau tepi\n• **Dasar** - Ganjil/Genap + Besar/Kecil dari penjumlahan 2D\n• **50:50** - Ganjil/Genap, Besar/Kecil\n• **Kembang/Kempis** - Pola angka head/tail\n• **Silang Homo** - Ganjil/Genap head dan tail\n\nBosku mau tahu lebih detail tentang pasaran atau jenis taruhan tertentu?`
+    },
+    {
+        keywords: ["cara pasang togel", "pasang togel", "taruh togel", "bet togel", "main togel"],
+        response: `Bosku, cara pasang togel di platform kami sangat mudah sekali:\n\n📌 **Langkah-langkah:**\n1️⃣ Login ke akun bosku\n2️⃣ Pilih menu **TOGEL** di sidebar\n3️⃣ Pilih **pasaran** yang bosku inginkan (SGP, HK, SYD, dll)\n4️⃣ Masukkan **angka** yang ingin dipasang\n5️⃣ Pilih **jenis taruhan** (4D, 3D, 2D, Colok, dll)\n6️⃣ Masukkan **nominal bet** (minimal bet sangat terjangkau)\n7️⃣ Klik **KIRIM** dan tunggu result\n\n📌 **Tips dari CS:**\n• Pastikan saldo mencukupi sebelum pasang\n• Perhatikan **jam tutup pasaran** agar tidak terlambat\n• Cek kembali angka dan jenis taruhan sebelum submit\n• Struk taruhan bisa dilihat di menu **Riwayat Taruhan**\n\nBosku mau saya bantu penjelasan jenis taruhan togel tertentu?`
+    },
+    {
+        keywords: ["hadiah togel", "diskon togel", "bayaran togel", "payout togel", "odds togel"],
+        response: `Bosku, berikut info hadiah dan diskon togel di platform kami:\n\n📌 **Diskon Taruhan:**\n• **4D** → Diskon **66%** (pasang 1000, deduct 340)\n• **3D** → Diskon **59%** (pasang 1000, deduct 410)\n• **2D** → Diskon **29%** (pasang 1000, deduct 710)\n\n📌 **Hadiah Full (Tanpa Diskon):**\n• **4D** → x3000 (pasang 1000, menang 3.000.000)\n• **3D** → x400 (pasang 1000, menang 400.000)\n• **2D** → x70 (pasang 1000, menang 70.000)\n\n📌 **Hadiah Diskon:**\n• **4D** → x2800\n• **3D** → x380\n• **2D** → x68\n\n📌 **Hadiah Lainnya:**\n• Colok Bebas → x1.55\n• Colok Jitu → x8\n• Colok Naga → x25\n• Shio → x9.5\n• 50:50 → x1\n\nIni sudah termasuk yang paling kompetitif di kelasnya, bosku! 😊`
+    },
+
+    // === SPORTBOOK / BOLA ===
+    {
+        keywords: ["bola", "sportbook", "sport", "sepak bola", "judi bola", "taruhan bola", "sbobet", "cmd368", "ubobet"],
+        response: `Bosku, Sportsbook atau taruhan bola adalah salah satu produk unggulan kami! Kami menyediakan 3 provider terbaik:\n\n📌 **Provider Tersedia:**\n• **SBOBET** - Provider legendaris, pasaran terlengkap\n• **CMD368** - Odds kompetitif, cocok untuk player profesional\n• **UBOBET** - Interface ringan, proses cepat\n\n📌 **Jenis Taruhan Bola:**\n• **Handicap (HDP)** - Memberi vooran ke tim lemah\n• **Over/Under (O/U)** - Taruhan total gol di atas/bawah\n• **1X2** - Pilih Menang/Seri/Kalah (tanpa voor)\n• **Odd/Even** - Total gol ganjil atau genap\n• **Mix Parlay** - Gabung beberapa pertandingan (hadiah besar!)\n• **Correct Score** - Tebak skor tepat\n• **First Half / Full Time** - Taruhan babak 1 atau full\n• **Outright** - Juara liga / top scorer\n• **Corner Kick** - Taruhan jumlah corner\n• **First Goal/Last Goal** - Tim yang mencetak gol pertama/terakhir\n\n📌 **Liga Populer:**\nLiga Inggris, La Liga, Serie A, Bundesliga, Liga Champions, Piala Dunia, Liga Indonesia, dan ratusan liga lainnya!\n\nBosku mau tahu lebih lanjut tentang Mix Parlay atau Handicap?`
+    },
+    {
+        keywords: ["mix parlay", "parlay", "gabung", "paket", "taruhan paket"],
+        response: `Bosku, Mix Parlay adalah taruhan gabungan minimal **3 pertandingan** dalam 1 tiket. Hadiahnya bisa sangat besar dengan modal kecil!\n\n📌 **Cara Hitung Mix Parlay:**\nRumus: Odds pertandingan × Odds pertandingan × ... × Nilai Bet\n\n**Contoh:**\n• Pertandingan A: Odds 1.80 (MENANG)\n• Pertandingan B: Odds 2.10 (MENANG)\n• Pertandingan C: Odds 1.95 (MENANG)\n• Bet: 50.000\n\nHitungan: 1.80 × 2.10 × 1.95 × 50.000 = **367.770**\n\n📌 **Aturan Penting:**\n• Minimal **3 tim** dalam 1 tiket\n• Jika 1 tim kalah → **Tiket HANGUS**\n• Jika 1 tim SERI/DRAW → **Odds tim tersebut dihapus** (tidak dihitung)\n• Jika 1 tim MENANG SETENGAH → Odds tim tersebut dikurangi 1 lalu dibagi 2\n• Jika 1 tim KALAH SETENGAH → **Tiket HANGUS**\n• Bisa campur Handicap, O/U, 1X2 dalam 1 tiket\n\n📌 **Tips Parlay:**\n• Jangan terlalu banyak tim (3-5 optimal)\n• Campur liga besar dan liga kecil\n• Perhatikan form tim dan cedera pemain\n\nBosku butuh bantuan hitung parlay?`
+    },
+    {
+        keywords: ["handicap", "voor", "vooran", "fur", "furan", "hdp"],
+        response: `Bosku, Handicap (HDP) atau vooran adalah sistem untuk menyamakan kekuatan antara tim favorit dan tim non-favorit:\n\n📌 **Contoh Handicap:**\n**Real Madrid vs Almeria**\n• Real Madrid HDP -1.5 (Odds 1.90)\n• Artinya Real Madrid harus menang **minimal 2 gol** (2-0, 3-1, dll)\n• Jika menang 1 gol (1-0, 2-1) → **KALAH SETENGAH**\n• Jika seri atau kalah → **KALAH PENUH**\n\n📌 **Jenis Handicap:**\n• **0.0** (Tanpa Voor) - Menang full, kalah full\n• **0.25 / -0.25** - Menang Setengah / Kalah Setengah\n• **0.5 / -0.5** - Menang Full / Kalah Full\n• **0.75 / -0.75** - Menang Setengah/Kalah Setengah tergantung selisih\n• **1.0 / -1.0** - Harus menang minimal 1 gol, seri = kalah setengah\n• **1.25 / -1.25** - Menang 1 gol = menang setengah, menang 2+ = menang full\n• Dan seterusnya...\n\n📌 **Warna Odds:**\n• **Merah** = Odds di atas 1.00 (kei positif)\n• **Biru** = Odds di bawah 1.00 (kei negatif)\n\nBosku ada pertandingan yang ingin dihitungkan?`
+    },
+    {
+        keywords: ["over under", "ou", "atas bawah", "gol atas bawah", "o/u"],
+        response: `Bosku, Over/Under (O/U) adalah taruhan menebak **total gol** dalam pertandingan, apakah di atas atau di bawah pasaran yang ditentukan:\n\n📌 **Cara Kerja:**\n**Pasaran O/U 2.5**\n• **Over** → Total gol harus **3 atau lebih** (2-1, 3-0, 2-2, dll)\n• **Under** → Total gol harus **2 atau kurang** (0-0, 1-0, 1-1, dll)\n• Tidak ada hasil seri di O/U 0.5!\n\n📌 **Pasaran Umum:**\n• O/U 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5\n\n📌 **O/U Setengah (0.25 / 0.75):**\n**O/U 2.25**\n• Total 3 gol → **MENANG PENUH**\n• Total 2 gol → **KALAH SETENGAH**\n• Total 1 gol → **KALAH PENUH**\n\n📌 **Tips O/U:**\n• Lihat statistik rata-rata gol kedua tim\n• Perhatikan apakah ada pemain kunci yang cedera\n• Derby/rivalitas biasanya menghasilkan banyak gol\n• Babak 1 biasanya lebih sedikit gol dari babak 2\n\nBosku mau tanya pasaran O/U pertandingan tertentu?`
+    },
+
+    // === LIVE CASINO ===
+    {
+        keywords: ["casino", "live casino", "baccarat", "roulette", "sic bo", "dadu", "dragon tiger", "blackjack", "fan tan"],
+        response: `Bosku, Live Casino kami disiarkan langsung dari studio profesional dengan dealer cantik! Tersedia multiple provider:\n\n📌 **Provider Casino:**\n• **ION Casino** - Premium, banyak meja VIP\n• **PP Casino (Pragmatic)** - Visual memukau, banyak varian\n• **SBO Casino** - Standar internasional\n• **Sexy Gaming** - Dealer interaktif\n• **AE Sexy** - Streaming HD\n• **Dream Gaming** - Meja eksklusif\n• **AG Casino** - Legendaris\n\n📌 **Permainan Tersedia:**\n🎴 **Baccarat** - Tebak Player/Banker/ Tie\n🎡 **Roulette** - Tebak nomor bola di roda\n🎲 **Sic Bo / Dadu** - Tebak total 3 dadu\n🐉 **Dragon Tiger** - Versi cepat baccarat\n🃏 **Blackjack** - Bandingkan kartu dengan dealer\n🪙 **Fan Tan** - Permainan koin tradisional\n🎴 **Bull Bull** - Kombinasi 5 kartu\n🎰 **Money Wheel** - Roda keberuntungan\n\nBosku mau penjelasan detail permainan casino mana?`
+    },
+    {
+        keywords: ["baccarat", "bakarat", "bakara", "player banker"],
+        response: `Bosku, Baccarat adalah permainan casino paling populer! Sangat simpel:\n\n📌 **Aturan Dasar:**\n• Pilih **PLAYER**, **BANKER**, atau **TIE (Seri)**\n• Dealer akan membagikan 2 kartu ke Player dan 2 ke Banker\n• Pihak dengan total nilai kartu **mendekati 9** menang\n\n📌 **Hitungan Kartu:**\n• Kartu **2-9** → Sesuai angka\n• Kartu **10, J, Q, K** → Nilai **0**\n• Kartu **AS** → Nilai **1**\n• Jika total **10 atau lebih**, ambil angka belakang (contoh: 15 → nilai 5)\n\n📌 **Kartu Ketiga (Aturan Otomatis):**\n• **Player** total 0-5 → Dapat kartu ke-3\n• **Banker** mengikuti aturan kompleks berdasarkan kartu Player\n• (Semua otomatis, bosku tinggal duduk manis!)\n\n📌 **Jenis Taruhan Baccarat:**\n• **Player** → Bayaran 1:1 (tanpa komisi)\n• **Banker** → Bayaran 1:1 (komisi 5% jika menang)\n• **Tie** → Bayaran 1:8\n• **Player Pair** → Bayaran 1:11\n• **Banker Pair** → Bayaran 1:11\n• **Perfect Pair** → Bayaran 1:25\n• **Big/Small** → Total kartu 5-6 (Big) atau 4 (Small)\n\n📌 **Tips:**\n• Banker win rate sedikit lebih tinggi (~50.68%)\n• Hindari Tie (house edge sangat tinggi)\n• Gunakan pattern board yang tersedia di meja\n\nBosku mau tahu tentang Dragon Tiger juga?`
+    },
+    {
+        keywords: ["roulette", "rolet", "roda", "putaran roda", "nomor roulette"],
+        response: `Bosku, Roulette adalah permainan ikonik casino dengan roda putar:\n\n📌 **Jenis Roulette:**\n• **European Roulette** → 37 slot (0-36), house edge 2.7%\n• **American Roulette** → 38 slot (0, 00, 1-36), house edge 5.26%\n• **French Roulette** → Sama seperti European + aturan La Partage\n\n📌 **Jenis Taruhan:**\n\n**Straight Up** (1 angka) → Bayaran 1:35\n**Split** (2 angka) → Bayaran 1:17\n**Street** (3 angka) → Bayaran 1:11\n**Corner** (4 angka) → Bayaran 1:8\n**Six Line** (6 angka) → Bayaran 1:5\n\n**Red/Black** (Merah/Hitam) → Bayaran 1:1\n**Odd/Even** (Ganjil/Genap) → Bayaran 1:1\n**High/Low** (1-18 / 19-36) → Bayaran 1:1\n**Dozen** (1-12, 13-24, 25-36) → Bayaran 1:2\n**Column** (Kolom) → Bayaran 1:2\n\n📌 **Warna Angka:**\n• **Merah**: 1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36\n• **Hitam**: 2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35\n• **Hijau**: 0 (dan 00 di American)\n\nBosku mau tahu strategi roulette?`
+    },
+    {
+        keywords: ["sic bo", "dadu", "koprok", "3 dadu", "total dadu"],
+        response: `Bosku, Sic Bo (dadu) adalah permainan menebak hasil 3 dadu yang dikocok:\n\n📌 **Jenis Taruhan Sic Bo:**\n\n**Big/Small** (Besar/Kecil)\n• Big → Total 11-17 (bayaran 1:1)\n• Small → Total 4-10 (bayaran 1:1)\n• Kalau triple (3 angka sama) → Kalah\n\n**Odd/Even** (Ganjil/Genap) → Bayaran 1:1\n\n**Total Spesifik:**\n• Total 4 atau 17 → 1:50\n• Total 5 atau 16 → 1:18\n• Total 6 atau 15 → 1:14\n• Total 7 atau 14 → 1:12\n• Total 8 atau 13 → 1:8\n• Total 9 atau 10 atau 11 atau 12 → 1:6\n\n**Double** (2 dadu sama) → Bayaran 1:8\n**Triple** (3 dadu sama, pilih angka) → Bayaran 1:150\n**Any Triple** (3 dadu sama, angka berapa saja) → Bayaran 1:24\n\n**Kombinasi 2 Dadu** → Bayaran 1:5\n**Single Dice** (1 dadu cocok) → Bayaran 1:1\n**Two Single Dice** (2 dadu cocok) → Bayaran 1:2\n**Three Single Dice** (3 dadu cocok) → Bayaran 1:3\n\nBosku mau coba permainan dadu lainnya juga ada, seperti Dragon Tiger atau Fan Tan!`
+    },
+    {
+        keywords: ["dragon tiger", "naga harimau", "dt"],
+        response: `Bosku, Dragon Tiger adalah versi cepat dari Baccarat, sangat simpel:\n\n📌 **Aturan:**\n• Dealer membagikan **1 kartu ke Dragon** dan **1 kartu ke Tiger**\n• Pihak dengan **kartu lebih tinggi** menang\n• Kalau seri → **Tie** (bayaran besar tapi jarang terjadi)\n\n📌 **Hitungan Kartu:**\nAS = 1, 2-10 = sesuai angka, J = 11, Q = 12, K = 13\n\n📌 **Jenis Taruhan:**\n• **Dragon** → Bayaran 1:1\n• **Tiger** → Bayaran 1:1\n• **Tie** → Bayaran 1:10\n• **Dragon Big** → Dragon kartu 8 atau lebih → 1:1\n• **Dragon Small** → Dragon kartu 6 atau kurang → 1:1\n• **Tiger Big/Small** → Sama seperti Dragon\n\n📌 **Keunggulan:**\n• Permainan tercepat di casino (15-20 detik per ronde)\n• Sangat mudah dipahami pemula\n• Tidak ada kartu ketiga yang membingungkan\n\nBosku mau langsung coba? Sangat recommended untuk pemula!`
+    },
+    {
+        keywords: ["blackjack", "21", "dua puluh satu", "bj"],
+        response: `Bosku, Blackjack atau 21 adalah permainan melawan dealer:\n\n📌 **Tujuan:** Mendapatkan total kartu **mendekati 21** tanpa melebihi (bust)\n\n📌 **Hitungan Kartu:**\n• 2-10 → Sesuai angka\n• J, Q, K → Nilai 10\n• AS → 1 atau 11 (pilih yang menguntungkan)\n\n📌 **Tindakan Pemain:**\n• **Hit** → Ambil kartu tambahan\n• **Stand** → Tidak ambil kartu lagi\n• **Double Down** → Gandakan bet, ambil 1 kartu lagi\n• **Split** → Jika 2 kartu sama, pisah jadi 2 tangan\n• **Insurance** → Asuransi jika dealer dapat AS (bayaran 2:1)\n• **Surrender** → Menyerah, dapat setengah bet kembali\n\n📌 **Pemenang:**\n• Blackjack (AS + 10/J/Q/K di 2 kartu pertama) → Bayaran **3:2**\n• Menang biasa → Bayaran **1:1**\n• Tie (Push) → Bet dikembalikan\n• Bust (lebih dari 21) → Kalah otomatis\n\n📌 **Aturan Dealer:**\nDealer WAJIB Hit jika total 16 atau kurang, dan WAJIB Stand jika 17 atau lebih.\n\nBosku tertarik main Blackjack?`
+    },
+
+    // === SLOT ===
+    {
+        keywords: ["slot", "mesin slot", "gacor", "spin", "putar slot", "rtp slot", "slot online", "pola slot"],
+        response: `Bosku, Slot Online adalah produk terlengkap kami dengan ratusan game! 🔥\n\n📌 **Provider Slot Tersedia:**\n• **Pragmatic Play** → Gates of Olympus, Starlight Princess, Sweet Bonanza\n• **PG Soft** → Mahjong Ways 1&2, Lucky Neko, Ways of Qilin\n• **Habanero** → Hot Hot Fruit, Koi Gate, Nine Tails\n• **Microgaming** → Immortal Romance, Thunderstruck II\n• **Spadegaming** → Golden Fist, Candy Pop\n• **Joker Gaming** → Roma, Golden Dragon\n• **CQ9** → Good Fortune M, Zombie Party\n• **AE Gaming** → Golden Crab, Treasure Bowl\n• **Fast Spin** → Fortune God, Dragon Gold\n• **Top Trend Gaming** → Safari Heat, Dolphin Reef\n• Dan masih banyak lagi...\n\n📌 **Istilah Penting Slot:**\n• **RTP (Return to Player)** → Persentase pengembalian ke pemain (makin tinggi makin bagus, cari di atas 95%)\n• **Volatilitas** → Low (sering menang kecil), High (jarang menang tapi besar)\n• **Payline** → Garis pembayaran aktif\n• **Scatter** → Simbol bonus/putaran gratis\n• **Wild** → Simbol pengganti simbol lain\n• **Maxwin** → Kemenangan maksimal dalam 1 spin\n• **Buy Spin** → Beli putaran gratis langsung\n\n📌 **Tips Bermain Slot:**\n• Atur budget sebelum bermain\n• Cek RTP sebelum main\n• Mainkan demo dulu untuk coba pola\n• Jangan kejar kekalahan\n\nBosku mau rekomendasi slot gacor atau info RTP game tertentu?`
+    },
+    {
+        keywords: ["gacor", "slot gacor", "game gacor", "gacor hari ini", "bo gacor"],
+        response: `Bosku, berikut rekomendasi slot yang sering memberikan kemenangan:\n\n🔥 **TOP GACOR Pragmatic Play:**\n• **Gates of Olympus** - RTP 96.50% | Maxwin x5000\n• **Starlight Princess** - RTP 96.50% | Maxwin x5000\n• **Sweet Bonanza** - RTP 96.51% | Maxwin x21.100\n• **Wild West Gold** - RTP 96.51% | Maxwin x18000\n• **Madame Destiny Megaways** - RTP 96.50% | Maxwin x5000\n\n🔥 **TOP GACOR PG Soft:**\n• **Mahjong Ways 2** - RTP 96.95% | Maxwin x25000\n• **Lucky Neko** - RTP 95.34% | Maxwin x676x\n• **Treasures of Aztec** - RTP 96.71% | Maxwin x10000\n• **Ways of Qilin** - RTP 96.76% | Maxwin x25000\n\n🔥 **TOP GACOR Habanero:**\n• **Koi Gate** - RTP 96.95% | Maxwin tidak terbatas\n• **Hot Hot Fruit** - RTP 96.71%\n• **Nine Tails** - RTP 96.63%\n\n⚠️ **Catatan Penting:**\nBosku, semua slot menggunakan sistem **RNG (Random Number Generator)** sehingga hasilnya sepenuhnya acak. Tidak ada yang bisa menjamin gacor 100%. Yang bisa bosku lakukan adalah memilih game dengan RTP tinggi dan main dengan bijak!\n\nBosku mau tahu info pola atau bet yang recommended?`
+    },
+    {
+        keywords: ["rtp", "return to player", "persentase menang", "persen menang"],
+        response: `Bosku, RTP (Return to Player) adalah persentase rata-rata uang yang dikembalikan slot kepada pemain dalam jangka panjang:\n\n📌 **Contoh:**\nSlot dengan RTP 96% → Dari setiap 100.000 yang diputar, rata-rata 96.000 dikembalikan ke pemain dalam bentuk kemenangan.\n\n📌 **Kategori RTP:**\n• **96%+** → Sangat Bagus ✅\n• **94-96%** → Bagus\n• **90-94%** → Standar\n• **Di bawah 90%** → Kurang recommended ❌\n\n📌 **RTP Game Populer:**\n• Mahjong Ways 2 → **96.95%**\n• Koi Gate → **96.95%**\n• Sweet Bonanza → **96.51%**\n• Gates of Olympus → **96.50%**\n• Hot Hot Fruit → **96.71%**\n• Treasures of Aztec → **96.71%**\n\n📌 **Yang Perlu Bosku Tahu:**\n• RTP dihitung dalam **jutaan spin**, bukan puluhan atau ratusan\n• RTP bukan jaminan menang di setiap sesi\n• RTP bisa berbeda antar provider/platform\n• Volatilitas juga mempengaruhi pengalaman bermain\n\nBosku mau cek RTP game tertentu?`
+    },
+
+    // === POKER / CARDS ===
+    {
+        keywords: ["poker", "kartu poker", "texas", "holdem", "kartu remi", "domino", "gaple", "qiu qiu", "kiu kiu", "dominoqq", "bandarq", "aduq", "capsa", "bandar ceme", "ceme"],
+        response: `Bosku, permainan kartu kami sangat lengkap! Tersedia di provider IDN Play:\n\n📌 **Permainan Kartu Remi:**\n\n🃏 **Texas Hold'em Poker**\n• 2 kartu ditangan + 5 kartu community\n• Kombinasi tertinggi menang\n• Bisa Fold, Call, Raise, All In\n\n🃏 **Capsa Susun**\n• 13 kartu disusun menjadi 3 baris\n• Baris bawah (5 kartu) paling kuat\n• Baris tengah (5 kartu) sedang\n• Baris atas (3 kartu) paling lemah\n\n🃏 **Blackjack** → (Sudah dijelaskan di Casino)\n\n🃏 **Big Two / Capsa Banting**\n• Buang kartu dengan kombinasi\n• Pertama buang semua kartu = menang\n\n📌 **Permainan Kartu Domino:**\n\n🎲 **DominoQQ (Qiu Qiu)**\n• 4 kartu domino, dibagi 2 pasang\n• Jumlahkan masing-masing pasang, ambil nilai belakang\n• QQ (9-9) = tertinggi\n\n🎲 **BandarQ**\n• Seperti QQ tapi 1 pemain jadi bandar\n• Bandar vs semua player\n• Kalau nilai sama, bandar menang\n\n🎲 **AduQ**\n• Setiap player dapat 2 kartu domino\n• Bandingkan nilai langsung\n\n🎲 **Bandar Ceme**\n• 2 kartu domino, mirip BandarQ\n• Player bisa jadi bandar jika saldo cukup\n\n🎲 **Sakong**\n• 3 kartu domino\n• Total 10 = Sakong (tertinggi)\n\nBosku mau belajar cara main salah satu permainan di atas?`
+    },
+    {
+        keywords: ["poker", "texas holdem", "texas poker", "flush", "straight", "full house"],
+        response: `Bosku, berikut urutan kombinasi kartu Poker dari tertinggi ke terendah:\n\n1️⃣ **Royal Flush** → 10,J,Q,K,A sama jenis (Sulit didapat!)\n2️⃣ **Straight Flush** → 5 kartu berurutan sama jenis\n3️⃣ **Four of a Kind** → 4 kartu sama angka\n4️⃣ **Full House** → 3 sama + 2 sama (contoh: AAA-KK)\n5️⃣ **Flush** → 5 kartu sama jenis (tidak berurutan)\n6️⃣ **Straight** → 5 kartu berurutan (beda jenis)\n7️⃣ **Three of a Kind** → 3 kartu sama angka\n8️⃣ **Two Pair** → 2 pasang kartu sama\n9️⃣ **One Pair** → 1 pasang kartu sama\n🔟 **High Card** → Tidak ada kombinasi, lihat kartu tertinggi\n\n📌 **Alur Permainan:**\n1. Dapat 2 kartu (Hole Cards)\n2. **Pre-Flop** → Taruhan pertama\n3. **Flop** → 3 kartu community dibuka\n4. **Turn** → 1 kartu community dibuka\n5. **River** → 1 kartu community terakhir dibuka\n6. **Showdown** → Bandingkan kartu\n\n📌 **Tindakan:**\n• **Fold** → Menyerah\n• **Check** → Lewat tanpa bet (jika belum ada raise)\n• **Call** → Ikuti taruhan lawan\n• **Raise** → Naikkan taruhan\n• **All In** → Taruh semua chip\n\nBosku butuh penjelasan lebih detail?`
+    },
+    {
+        keywords: ["dominoqq", "qq", "qiu qiu", "kiu kiu", "domino qq"],
+        response: `Bosku, DominoQQ atau Qiu Qiu sangat mudah dimainkan:\n\n📌 **Aturan:**\n• Setiap player mendapat **4 kartu domino**\n• Kartu dibagi menjadi **2 pasang** (kiri dan kanan)\n• Hitung nilai setiap pasang\n• Bandingkan dengan pemain lain\n\n📌 **Cara Hitung Nilai:**\n• Jumlahkan 2 kartu, ambil angka **belakang**\n• Contoh: 5+8=13 → nilai **3**\n• Contoh: 9+9=18 → nilai **8**\n• **0** (murni/kecil) → nilai tertinggi di atas 9\n\n📌 **Urutan Nilai (Tertinggi → Terendah):**\n• **9-9 (Qiu Qiu)** → Tertinggi\n• 9-8, 9-7, 9-6... dst\n• ... 1-1, 1-0, 0-0\n\n📌 **Kartu Spesial:**\n• **6 Dewa** → 4 kartu semuanya total 6 (otomatis menang)\n• **4 Balak** → 4 kartu semua balak (3-3, 5-5, dll)\n• **Murni Besar** → Total semua 4 kartu minimal 39\n• **Murni Kecil** → Total semua 4 kartu maksimal 9\n\n📌 **Jackpot (Tambahan):**\n• 6 Dewa → Bayaran jackpot 6666x\n• 4 Balak → Bayaran jackpot 1000x\n• Murni Besar → Bayaran jackpot 500x\n• Murni Kecil → Bayaran jackpot 250x\n\nBosku mau coba main DominoQQ?`
+    },
+
+    // === TOGEL DIGIT ===
+    {
+        keywords: ["colok bebas", "colok jitu", "colok naga", "colok", "colok macau"],
+        response: `Bosku, berikut penjelasan lengkap taruhan Colok di Togel:\n\n📌 **Colok Bebas:**\n• Menebak **1 angka** di posisi manapun dari 4D\n• Contoh: Colok 5, result 4521 → MENANG\n• Bayaran: x1.55\n\n📌 **Colok Bebas 2D (Macau):**\n• Menebak **2 angka** bebas posisi dari 4D\n• Contoh: Colok 5&2, result 4521 → MENANG\n• Bayaran: x5.5\n\n📌 **Colok Naga:**\n• Menebak **3 angka** bebas posisi dari 4D\n• Contoh: Colok 5,2,1, result 4521 → MENANG\n• Bayaran: x12\n\n📌 **Colok Jitu:**\n• Menebak **1 angka di POSISI TEPAT**\n• Contoh: Colok Jitu posisi kepala angka 5, result 4**5**21 → MENANG\n• Jika result 45**5**1 → KALAH (posisi salah)\n• Bayaran: x8\n\n📌 **Colok Tepat 2D / 3D:**\n• Menebak angka di posisi tepat yang ditentukan\n• Colok Tepat 2D → x65\n• Colok Tepat 3D → x350\n\nBosku ada yang masih kurang jelas?`
+    },
+    {
+        keywords: ["shio", "zodiak cina", "tahun shio", "shio togel"],
+        response: `Bosku, taruhan Shio di Togel menggunakan zodiak Tionghoa dari 2D belakang result:\n\n📌 **Daftar Shio & Angka 2D:**\n🐍 **Tikus** → 01, 13, 25, 37, 49, 61, 73, 85, 97\n🐂 **Kerbau** → 02, 14, 26, 38, 50, 62, 74, 86, 98\n🐅 **Macan** → 03, 15, 27, 39, 51, 63, 75, 87, 99\n🐇 **Kelinci** → 04, 16, 28, 40, 52, 64, 76, 88, 00\n🐲 **Naga** → 05, 17, 29, 41, 53, 65, 77, 89\n🐍 **Ular** → 06, 18, 30, 42, 54, 66, 78, 90\n🐴 **Kuda** → 07, 19, 31, 43, 55, 67, 79, 91\n🐐 **Kambing** → 08, 20, 32, 44, 56, 68, 80, 92\n🐒 **Monyet** → 09, 21, 33, 45, 57, 69, 81, 93\n🐓 **Ayam** → 10, 22, 34, 46, 58, 70, 82, 94\n🐕 **Anjing** → 11, 23, 35, 47, 59, 71, 83, 95\n🐷 **Babi** → 12, 24, 36, 48, 60, 72, 84, 96\n\n📌 **Cara Main:**\n• Pilih 1 shio dari 12 pilihan\n• Bayaran: **x9.5** (full) / **x9** (diskon)\n• Result diambil dari 2D belakang\n\n📌 **Tips:**\n• Perhatikan shio yang belum keluar lama\n• Pantau tabel shio harian\n\nBosku mau pasang shio hari ini?`
+    },
+
+    // === ARCADE / TEMBAK IKAN ===
+    {
+        keywords: ["tembak ikan", "fish hunter", "arcade", "fishing", "joker fishing", "spadegaming fishing", "shoot fish"],
+        response: `Bosku, Tembak Ikan adalah permainan arcade seru di mana bosku menembak ikan untuk mendapatkan koin!\n\n📌 **Provider Tembak Ikan:**\n• **Joker Gaming** → Fish Hunter series (paling populer)\n• **Spadegaming** → Fishing God, Fishing War\n• **PG Soft** → Medusa's Golden Gaze (versi fishing)\n• **CQ9** → Paradise Fish, Hero Fishing\n• **AE Gaming** → Ocean King series\n\n📌 **Jenis Ikan & Harga:**\n🐟 Ikan Kecil → 2-10 koin (mudah mati)\n🐠 Ikan Sedang → 15-50 koin\n🐙 Gurita → 30-80 koin\n🦀 Kepiting → 40-100 koin\n🐋 Ikan Paus → 100-300 koin\n🐉 Naga → 300-500 koin\n👑 Boss/Raja → 500-1000+ koin (sangat sulit)\n💎 Jackpot → Bisa ribuan koin!\n\n📌 **Tips Tembak Ikan:**\n• Gunakan peluru kecil untuk ikan kecil, besar untuk boss\n• Tembak ikan yang sedang dikeroyok pemain lain\n• Jangan boros peluru di ikan besar sendirian\n• Manfaatkan fitur auto-shoot di area ramai\n• Perhatikan timing spawn boss\n\nBosku mau coba tembak ikan? Modal kecil bisa dapat banyak!`
+    },
+
+    // === SABUNG AYAM ===
+    {
+        keywords: ["sabung ayam", "ayam", "cockfight", "sv388", "s128", "adu ayam"],
+        response: `Bosku, Sabung Ayam Live adalah taruhan pada pertarungan ayam yang disiarkan langsung!\n\n📌 **Provider:**\n• **SV388** → Pasaran terlengkap, streaming stabil\n• **S128** → Legendaris, banyak arena\n\n📌 **Jenis Taruhan:**\n• **Merah/Blue (Wala/Meron)** → Pilih ayam menang, bayaran sesuai odds\n• **FTD (Full Time Draw)** → Seri dalam waktu 10 menit, bayaran x8\n• **BDD (Both Dead Draw)** → Kedua ayam mati sebelum waktu habis, bayaran x8\n\n📌 **Odds System:**\n• Odds **Merah** dan **Biru** berbeda setiap pertandingan\n• Odds bisa berubah sebelum kick-off\n• Contoh: Merah 0.86 / Biru -0.76\n\n📌 **Format Pertandingan:**\n• Waktu normal: **10 menit**\n• Jika seri → tambahan waktu **10 menit**\n• Jika masih seri → dianggap FTD\n\n📌 **Tips:**\n• Lihat postur dan ukuran ayam\n• Perhatikan riwayat pertandingan ayam\n• Ayam dengan jalu lebih panjang biasanya diunggulkan\n• Arena dan wasit juga mempengaruhi\n\nBosku mau tahu jadwal sabung ayam hari ini?`
+    },
+
+    // === E-SPORTS ===
+    {
+        keywords: ["esport", "e-sport", "esports", "dota", "lol", "mobile legend", "ml", "csgo", "cs2", "counter strike", "valorant", "pubg", "game online"],
+        response: `Bosku, E-Sports taruhan juga tersedia! Semakin populer setiap tahun:\n\n📌 **Game yang Tersedia:**\n⚔️ **Dota 2** - Taruhan match winner, handicap, over/under kill\n🎮 **League of Legends (LoL)** - Match winner, first blood, first tower\n📱 **Mobile Legends** - Match winner, handicap map\n🔫 **CS2 (Counter-Strike 2)** - Match winner, round handicap, total rounds\n🎯 **Valorant** - Match winner, map winner\n🔫 **PUBG** - Winner, top 3, kill count\n🎮 **Arena of Valor** - Match winner\n\n📌 **Jenis Taruhan E-Sports:**\n• **Money Line** → Tim mana menang\n• **Handicap** → Voor map/round\n• **Over/Under** → Total kill/map di atas/bawah\n• **First Blood** → Tim yang first blood\n• **First Tower/Baron/Roshan** → Objective pertama\n• **Correct Score** → Skor map tepat\n• **Outright** → Juara turnamen\n\n📌 **Turnamen Besar:**\n• The International (Dota 2)\n• Worlds (LoL)\n• Majors (CS2)\n• MPL (Mobile Legends)\n• VCT (Valorant)\n\nBosku ikut nonton dan taruh juga bisa!`
+    },
+
+    // === DEPOSIT / WITHDRAW ===
+    {
+        keywords: ["deposit", "setor", "isi saldo", "top up", "topup", "saldo", "masukin dana", "transfer"],
+        response: `Bosku, cara deposit di platform kami sangat mudah dan cepat:\n\n📌 **Metode Deposit:**\n\n🏦 **Transfer Bank:**\n• BCA, BNI, BRI, Mandiri, CIMB, Danamon, Permata\n• Proses: 1-3 menit (otomatis)\n• Minimal: Rp 10.000\n\n📱 **E-Wallet:**\n• GoPay, OVO, DANA, ShopeePay, LinkAja, Sakuku\n• Proses: 10-30 detik (otomatis)\n• Minimal: Rp 10.000\n\n📡 **Pulsa:**\n• Telkomsel, XL/Axis, Tri, Indosat\n• Proses: 1-3 menit\n• Minimal: Rp 10.000\n• **Note:** Rate potongan berlaku untuk pulsa\n\n💳 **QRIS:**\n• Scan QR dari aplikasi apapun\n• Proses: 10-30 detik\n• Minimal: Rp 10.000\n\n₿ **Crypto:**\n• Bitcoin, Ethereum, USDT (TRC20/ERC20)\n• Proses: 2-10 menit (3 konfirmasi)\n\n📌 **Langkah Deposit:**\n1. Login → Klik **DEPOSIT**\n2. Pilih metode pembayaran\n3. Masukkan nominal\n4. Transfer sesuai nominal yang tertera\n5. Saldo otomatis masuk!\n\n⚠️ **Penting:** Selalu transfer sesuai nominal yang tertera agar proses otomatis!`
+    },
+    {
+        keywords: ["withdraw", "wd", "tarik", "cair", "penarikan", "ambil dana", "kirim dana"],
+        response: `Bosku, penarikan dana (Withdraw) kami proses super cepat!\n\n📌 **Metode Withdraw:**\n🏦 **Transfer Bank** (BCA, BNI, BRI, Mandiri, dll)\n📱 **E-Wallet** (GoPay, OVO, DANA, ShopeePay)\n₿ **Crypto** (USDT, Bitcoin, Ethereum)\n\n📌 **Syarat Withdraw:**\n• Saldo mencukupi (minimal WD: **Rp 25.000**)\n• **Tidak ada taruhan yang sedang berjalan**\n• Data rekening harus **valid dan sesuai KTP**\n• Jika ada bonus, **syarat turnover harus terpenuhi**\n\n📌 **Proses Withdraw:**\n1. Klik menu **WITHDRAW**\n2. Masukkan nominal dan pilih metode\n3. Konfirmasi\n4. Proses: **1-5 menit** (maksimal 15 menit)\n\n📌 **Info Penting:**\n• Withdraw bisa kapan saja 24 jam\n• Tidak ada batas maksimal per hari (untuk member VIP)\n• Jika rekening berbeda nama → Dana dikembalikan ke saldo\n• Hari libur/nasional tetap bisa WD\n\nBosku mau melakukan withdraw sekarang?`
+    },
+
+    // === BONUS / PROMO ===
+    {
+        keywords: ["bonus", "promo", "promosi", "hadiah", "reward", "cashback", "rebate", "bonus new member", "rollingan", "turnover"],
+        response: `Bosku, berikut bonus dan promo yang tersedia:\n\n🎁 **BONUS NEW MEMBER:**\n• Slot: 100% (maksimal Rp 1.000.000)\n• Sportsbook: 100% (maksimal Rp 500.000)\n• Casino: 50% (maksimal Rp 500.000)\n\n🎁 **BONUS HARIAN:**\n• **Slot Deposit Harian** → 20% (maksimal Rp 200.000)\n• **Sportsbook Cashback** → 5-10% (tanpa turnover)\n• **Casino Rebate** → 0.8% (dibagikan setiap hari)\n• **Togel Discount** → Sesuai jenis taruhan\n\n🎁 **BONUS MINGGUAN:**\n• **Rollingan Slot** → 0.5% - 1% (tanpa syarat)\n• **Cashback Casino** → 5%\n• **Cashback Sportsbook** → 5-10%\n• **Rebate Togel** → 1%\n\n🎁 **BONUS SPESIAL:**\n• **Bonus Referral** → 2-3% dari turnover downline (SEUMUR HIDUP!)\n• **Bonus Birthday** → Freebet sesuai level VIP\n• **Bonus VIP** → Naik level dapat bonus bertingkat\n\n📌 **Syarat Umum Bonus:**\n• 1 akun = 1 bonus (tidak bisa double claim)\n• Syarat turnover harus dipenuhi sebelum withdraw\n• Bonus tidak berlaku untuk bet kiri-kanan, safety bet\n• Keputusan admin bersifat final\n\nBosku mau klaim bonus yang mana?`
+    },
+
+    // === VIP ===
+    {
+        keywords: ["vip", "level", "rank", "tier", "upgrade", "naik level", "member vip"],
+        response: `Bosku, kami memiliki sistem VIP dengan benefit bertingkat:\n\n👑 **LEVEL VIP:**\n\n🥉 **Bronze** (Otomatis saat daftar)\n• Cashback standar\n\n🥈 **Silver** (Turnover minimal 50 Juta)\n• Cashback +1%\n• Prioritas proses WD\n\n🥇 **Gold** (Turnover minimal 200 Juta)\n• Cashback +2%\n• Bonus birthday\n• Limit WD lebih tinggi\n\n💎 **Platinum** (Turnover minimal 500 Juta)\n• Cashback +3%\n• Dedicated CS pribadi\n• Bonus exclusive\n\n🏆 **Diamond** (Turnover minimal 2 Miliar)\n• Cashback +5%\n• Hadiah fisik (HP, Laptop, dll)\n• Liburan gratis\n• Event VIP eksklusif\n\n🌟 **VIP Legend** (Undangan Khusus)\n• Semua benefit Diamond\n• Batas tidak terbatas\n• Pengalaman premium penuh\n\n📌 **Cek Level:**\nBosku bisa cek level dan progress di menu **Profil → VIP**\n\nBosku sudah di level berapa nih? Mau saya bantu cek?`
+    },
+
+    // === DAFTAR ===
+    {
+        keywords: ["daftar", "register", "registrasi", "bikin akun", "buat akun", "new account", "sign up", "join"],
+        response: `Bosku, cara daftar di platform kami sangat gampang, cuma 2 menit!\n\n📌 **Langkah Pendaftaran:**\n\n1️⃣ Klik tombol **DAFTAR** di halaman utama\n\n2️⃣ Isi data berikut:\n• **Username** (minimal 6 karakter, huruf + angka)\n• **Password** (minimal 8 karakter, kombinasi huruf besar + kecil + angka)\n• **Email** (aktif, untuk verifikasi)\n• **No. HP** (aktif, untuk konfirmasi)\n• **Nama Rekening** (sesuai buku rekening bank)\n• **Nomor Rekening**\n• **Pilih Bank** (BCA/BNI/BRI/Mandiri/dll)\n\n3️⃣ Klik **DAFTAR**\n\n4️⃣ Verifikasi email/HP\n\n5️⃣ Login dan langsung deposit!\n\n📌 **Syarat Daftar:**\n• Usia minimal **18 tahun**\n• 1 orang = 1 akun (data harus valid)\n• Rekening atas nama sendiri\n• Tidak perlu biaya pendaftaran (GRATIS!)\n\n📌 **Tips:**\n• Gunakan password yang kuat tapi mudah diingat\n• Simpan data login dengan aman\n• Aktifkan 2FA untuk keamanan extra\n\nBosku sudah siap daftar? Kalau ada kendala, CS bisa bantu buatkan akun!`
+    },
+
+    // === REFERRAL ===
+    {
+        keywords: ["referral", "ref", "undang teman", "ajak teman", "kode referral", "link referral", "komisi referral", "downline"],
+        response: `Bosku, program Referral kami adalah cara paling mudah dapat penghasilan pasif!\n\n📌 **Cara Kerja:**\n1. Dapatkan **link referral** di menu Referral\n2. Bagikan link ke teman/sosial media\n3. Teman daftar melalui link bosku\n4. Bosku dapat komisi dari **turnover downline**\n\n📌 **Komisi Referral:**\n• **2-3%** dari turnover downline\n• **SEUMUR HIDUP** (selama downline aktif bermain)\n• **Tanpa batas** jumlah downline\n\n📌 **Contoh Hitungan:**\n• Downline bosku turnover Rp 10.000.000/bulan\n• Komisi 2% = **Rp 200.000/bulan**\n• Kalau punya 10 downline aktif = **Rp 2.000.000/bulan**\n• Ini **PASSIVE INCOME** tanpa main!\n\n📌 **Cara Promosi:**\n• Share ke WhatsApp/Telegram group\n• Posting di media sosial\n• Buat konten review di YouTube/TikTok\n• Ajak teman langsung\n\n📌 **Info:**\n• Komisi dibagikan setiap hari secara otomatis\n• Bisa di-withdraw tanpa syarat turnover\n• Cek statistik downline di menu Referral\n\nBosku mau mulai dapat penghasilan dari referral?`
+    },
+
+    // === KENDALA TEKNIS ===
+    {
+        keywords: ["error", "gagal", "tidak bisa", "loading", "lambat", "lemot", "lag", "blank", "putih", "maintenance", "gangguan", "down"],
+        response: `Bosku, jika mengalami kendala teknis, silakan coba langkah berikut:\n\n📌 **Langkah Pertama (Self Check):**\n1. **Clear cache & cookies** browser\n2. Coba pakai browser lain (Chrome/Firefox/Edge)\n3. Cek koneksi internet bosku\n4. Matikan VPN/Proxy jika sedang aktif\n5. Refresh halaman (Ctrl+F5)\n6. Coba akses via link alternatif\n\n📌 **Jika Masih Error:**\n1. **Screenshot** error yang muncul\n2. Catat **waktu** terjadinya error\n3. Catat **permainan/provider** yang bermasalah\n4. Hubungi CS dengan info tersebut\n\n📌 **Kendala Umum & Solusi:**\n• **Game tidak bisa dibuka** → Clear cache, coba provider lain\n• **Slot stuck/freeze** → Refresh, keluar masuk game\n• **Deposit tidak masuk** → Kirim bukti transfer ke CS\n• **Tidak bisa login** → Cek username/password, reset jika lupa\n• **Halaman blank** → Clear DNS, ganti browser\n\n📌 **Link Alternatif:**\nKalau situs utama tidak bisa diakses, bosku bisa hubungi CS untuk mendapatkan link alternatif terbaru.\n\nBosku sedang mengalami kendala apa? Jelaskan detailnya ya!`
+    },
+
+    // === KEAMANAN ===
+    {
+        keywords: ["aman", "keamanan", "privasi", "data", "bocor", "hack", "dibobol", "penipuan", "penipu", "scam", "kontol", "bangsat", "curang"],
+        response: `Bosku, keamanan adalah prioritas utama kami:\n\n🔒 **Sistem Keamanan:**\n• **SSL Certificate** → Enkripsi data 256-bit\n• **Firewall** → Proteksi server berlapis\n• **2FA (Two-Factor Authentication)** → Verifikasi ganda\n• **Anti-DDoS** → Lindungi dari serangan\n• **Fraud Detection** → Deteksi aktivitas mencurigakan otomatis\n\n🔒 **Perlindungan Data:**\n• Data pribadi dienkripsi dan tidak dibagikan ke pihak ketiga\n• Server berlokasi di data center berstandar internasional\n• Backup data secara berkala\n\n🔒 **Fair Play:**\n• Semua game menggunakan **RNG (Random Number Generator)** yang tersertifikasi\n• Slot dan Live Casino diaudit oleh lembaga independen\n• Tidak ada manipulasi hasil permainan\n\n🔒 **Tips Keamanan untuk Bosku:**\n• Jangan share password ke siapapun (termasuk CS!)\n• Aktifkan 2FA di akun bosku\n• Ganti password secara berkala\n• Jangan klik link mencurigakan\n• Hanya akses dari link resmi\n\nBosku bisa tenang bermain, keamanan kami yang jaga! 😊`
+    },
+
+    // === MINIMAL BET ===
+    {
+        keywords: ["minimal", "minimum", "batas", "bet kecil", "modal kecil", "murah", "termurah", "bet termurah"],
+        response: `Bosku, minimal bet di platform kami sangat terjangkau!\n\n📌 **Minimal Bet Per Game:**\n\n🎰 **Slot:**\n• Minimal bet: **Rp 200 - Rp 500** per spin (tergantung game)\n\n⚽ **Sportsbook:**\n• Minimal bet: **Rp 10.000** per taruhan\n• Mix Parlay: **Rp 5.000** per tiket\n\n🎴 **Live Casino:**\n• Baccarat: **Rp 5.000** per bet\n• Roulette: **Rp 1.000** per angka\n• Sic Bo: **Rp 5.000** per bet\n• Dragon Tiger: **Rp 5.000** per bet\n\n🎲 **Togel:**\n• 2D: **Rp 1.000**\n• 3D: **Rp 1.000**\n• 4D: **Rp 1.000**\n• Colok: **Rp 1.000**\n\n🃏 **Poker / Kartu:**\n• Minimal buy-in: **Rp 10.000 - Rp 50.000** (tergantung meja)\n\n🐟 **Tembak Ikan:**\n• Minimal peluru: **Rp 10** per tembakan\n\n📌 **Info:**\n• Minimal deposit: **Rp 10.000**\n• Minimal withdraw: **Rp 25.000**\n\nJadi modal kecil juga bisa main semua game, bosku!`
+    },
+
+    // === WAKTU / JADWAL ===
+    {
+        keywords: ["jam", "waktu", "buka", "tutup", "jadwal", "jam buka", "24 jam", "operasional", "online jam"],
+        response: `Bosku, platform kami beroperasi **24 JAM NON-STOP** tanpa libur!\n\n📌 **Jam Operasional:**\n🕐 **CS Online** → 24 jam (selalu siap melayani)\n🕐 **Deposit** → 24 jam (otomatis)\n🕐 **Withdraw** → 24 jam (proses 1-5 menit)\n🕐 **Semua Game** → 24 jam (kecuali pasaran togel yang punya jadwal)\n\n📌 **Jadwal Result Togel:**\n• **SGP** → 17:45 WIB (Sen-Rab-Kam-Sab-Min)\n• **HK** → 23:00 WIB (Setiap hari)\n• **SYD** → 13:50 WIB (Setiap hari)\n• **Cambodia** → 11:50 WIB (Setiap hari)\n• **Taiwan** → 20:45 WIB (Setiap hari)\n• **China** → 15:30 WIB (Setiap hari)\n• **Japan** → 17:30 WIB (Setiap hari)\n\n📌 **Jam Tutup Pasaran Togel:**\nBiasanya tutup 15-30 menit sebelum result.\n\nBosku jangan khawatir, kapanpun mau main kita selalu siap! 😊`
+    },
+
+    // === APLIKASI ===
+    {
+        keywords: ["apk", "aplikasi", "download", "install", "android", "ios", "iphone", "hp", "mobile", "handphone"],
+        response: `Bosku, kami sudah tersedia di mobile!\n\n📌 **Cara Akses via HP:**\n\n**Opsi 1: Mobile Web (Recommended)**\n• Buka browser (Chrome/Safari)\n• Akses link kami\n• Otomatis tampilan mobile-friendly\n• Tidak perlu download apa-apa\n• Semua fitur lengkap!\n\n**Opsi 2: Add to Home Screen**\n• Buka situs via Chrome\n• Klik menu (3 titik) → **"Tambahkan ke Layar Utama"**\n• Sekarang bosku punya icon seperti aplikasi!\n\n📌 **Keunggulan Versi Mobile:**\n• Ringan dan cepat\n• Tidak perlu update manual\n• Semua game bisa dimainkan\n• Deposit/WD bisa dari HP\n• Responsive di semua ukuran layar\n\n📌 **Perangkat yang Didukung:**\n• Android 6.0+\n• iOS 12+\n• Tablet (iPad, Samsung Tab, dll)\n\n📌 **Tips Mobile:**\n• Gunakan WiFi/4G stabil untuk live casino\n• Aktifkan rotasi layar untuk pengalaman lebih baik\n• Clear cache berkala agar tetap ringan\n\nBosku akses dari HP atau komputer?`
+    },
+
+    // === LUPA PASSWORD ===
+    {
+        keywords: ["lupa", "lupa password", "lupa sandi", "lupa pin", "reset password", "ganti password", "ubah password"],
+        response: `Bosku, kalau lupa password, jangan khawatir, mudah banget kok:\n\n📌 **Cara Reset Password:**\n\n**Metode 1: Via Halaman Login**\n1. Klik **"Lupa Password?"** di halaman login\n2. Masukkan **username** atau **email** yang terdaftar\n3. Cek email/HP untuk kode verifikasi\n4. Masukkan kode tersebut\n5. Buat password baru\n\n**Metode 2: Via CS**\n1. Hubungi CS via Live Chat\n2. Berikan data verifikasi:\n   • Username\n   • Email terdaftar\n   • No. HP terdaftar\n   • Nama rekening\n3. CS akan bantu reset\n\n📌 **Syarat Reset via CS:**\n• Data yang diberikan harus **cocok** dengan data pendaftaran\n• Tidak bisa reset jika data tidak valid\n• Untuk keamanan, CS akan memvalidasi terlebih dahulu\n\n📌 **Tips:**\n• Setelah reset, segera ganti password\n• Gunakan password yang mudah diingat tapi kuat\n• Simpan password di tempat aman\n• Aktifkan 2FA untuk mencegah lupa sekaligus keamanan\n\nBosku butuh bantuan reset password sekarang?`
+    },
+
+    // === LINK ALTERNATIF ===
+    {
+        keywords: ["link", "link alternatif", "link alt", "link baru", "link resmi", "url", "website", "situs", "tidak bisa akses", "blokir", "nawala", "positif"],
+        response: `Bosku, kalau situs utama tidak bisa diakses (terkena blokir/nawala), tenang saja!\n\n📌 **Solusi Akses:**\n\n**1. Link Alternatif**\n• Hubungi CS via Live Chat untuk mendapatkan link alternatif terbaru\n• Kami selalu menyediakan **multiple link** aktif\n• Update link setiap kali ada yang terblokir\n\n**2. Gunakan VPN**\n• Download VPN gratis (Cloudflare WARP, dll)\n• Aktifkan VPN → akses situs seperti biasa\n• WARP recommended karena ringan dan gratis\n\n**3. Ganti DNS**\n• Ubah DNS ke **Cloudflare (1.1.1.1)** atau **Google (8.8.8.8)**\n• Cara: Settings → WiFi → DNS → Manual\n\n**4. Akses via IP langsung**\n• Minta IP address server ke CS\n\n📌 **Tips:**\n• **Simpan** link alternatif yang sudah diberikan CS\n• Bookmark link yang sudah bisa diakses\n• Join group Telegram resmi untuk info link terbaru\n• Jangan pernah klik link dari sumber tidak dikenal!\n\nBosku mau minta link alternatif sekarang?`
+    },
+
+    // === TURNAMEN ===
+    {
+        keywords: ["turnamen", "tournament", "kompetisi", "lomba", "kontes", "pertandingan"],
+        response: `Bosku, kami rutin mengadakan turnamen dengan hadiah menggiurkan!\n\n📌 **Jenis Turnamen:**\n\n🎰 **Turnamen Slot**\n• Freeroll (gratis ikut) & Buy-in (bayar untuk ikut)\n• Hadiah total biasanya puluhan hingga ratusan juta\n• Provider: Pragmatic, PG Soft, Habanero\n\n⚽ **Turnamen Sportsbook**\n• Tebak skor turnamen besar (Piala Dunia, Euro, dll)\n• Leaderboard prediksi terakurat\n\n🎴 **Turnamen Casino**\n• Turnamen Baccarat, Roulette, dll\n• Berdasarkan total turnover atau win streak\n\n🃏 **Turnamen Poker**\n• Texas Hold'em Tournament\n• Freeroll harian/mingguan\n• GTD (Guaranteed Prize) turnamen besar\n\n📌 **Cara Ikut Turnamen:**\n1. Cek menu **Turnamen** di platform\n2. Pilih turnamen yang diinginkan\n3. Klik **"Gabung"** atau bayar buy-in\n4. Mainkan game yang ditentukan\n5. Peringkat dihitung otomatis\n\n📌 **Info:**\n• Jadwal turnamen diupdate setiap minggu\n• Hadiah langsung masuk ke saldo (tanpa turnover)\n• Bisa cek ranking real-time di menu turnamen\n\nBosku mau ikut turnamen yang mana?`
+    },
+
+    // === SALDO ===
+    {
+        keywords: ["saldo tidak masuk", "saldo hilang", "saldo kurang", "saldo berkurang", "saldo nol", "saldo pending", "deduct", "potongan"],
+        response: `Bosku, untuk masalah saldo, berikut penjelasannya:\n\n📌 **Deposit Tidak Masuk:**\n• Cek apakah transfer sudah **berhasil** (bukan pending)\n• Pastikan nominal **sesuai** dengan yang tertera\n• Jika sudah transfer tapi belum masuk → kirim **bukti transfer** ke CS\n• Proses verifikasi: 1-5 menit\n\n📌 **Saldo Berkurang Tidak Wajar:**\n• Cek **Riwayat Taruhan** apakah ada bet yang tidak dikenali\n• Cek apakah ada **bonus yang di-claim** (ada syarat turnover)\n• Hubungi CS dengan detail waktu dan jumlah\n• Tim kami akan investigasi dan membereskan\n\n📌 **Withdraw Pending Lama:**\n• Normal: 1-5 menit\n• Jika lebih dari 15 menit → hubungi CS\n• Biasanya karena: rekening offline, maintenance bank, atau antrian\n\n📌 **Potongan Saldo:**\n• **Pulsa**: Ada rate potongan sesuai provider\n• **Bonus claim**: Tidak ada potongan, tapi ada syarat TO\n• **Game**: Tidak ada potongan di luar bet yang bosku pasang\n\nBosku bisa jelaskan detail masalah saldonya? Saya bantu cek!`
+    }
+];
+
+// =============================================
+// JAWABAN UMUM / GREETING
+// =============================================
+
+const greetings = [
+    "Halo bosku! 😊 Selamat datang di CS Online. Ada yang bisa saya bantu hari ini? Silakan tanya seputar permainan, deposit, withdraw, bonus, atau apapun!",
+    "Siang bosku! 🔥 CS Online siap melayani. Mau tanya tentang togel, bola, casino, slot, atau yang lain? Langsung saja bosku!",
+    "Halo bosku, ada yang bisa dibantu? Semua info tentang permainan judi online ada di sini. Silakan ditanya ya! 😊"
+];
+
+const fallbackResponses = [
+    "Bosku, mohon maaf untuk pertanyaan tersebut saya belum bisa memberikan jawaban yang spesifik. Tapi bosku bisa tanya tentang:\n\n• Togel (pasaran, jenis taruhan, hadiah)\n• Sportsbook (bola, handicap, parlay, O/U)\n• Live Casino (baccarat, roulette, sic bo, dll)\n• Slot Online (provider, RTP, game gacor)\n• Poker & Kartu (dominoQQ, bandarQ, ceme)\n• Tembak Ikan, Sabung Ayam, E-Sports\n• Deposit, Withdraw, Bonus, VIP\n\nSilakan bosku spesifikkan pertanyaannya ya! 😊",
+    "Maaf bosku, saya belum paham maksud pertanyaan bosku. 😅\n\nBosku bisa coba tanya dengan kata kunci seperti:\n\"cara main togel\", \"handicap bola\", \"baccarat\", \"slot gacor\", \"deposit\", \"bonus\", dll.\n\nAtau jelaskan lebih detail apa yang ingin bosku ketahui!",
+    "Bosku, sepertinya pertanyaannya belum bisa saya tangkap dengan baik. 🤔\n\nCoba bosku tulis ulang dengan lebih spesifik, misalnya:\n• \"Gimana cara main baccarat?\"\n• \"Hadiah togel 4D berapa?\"\n• \"Minimal bet slot berapa?\"\n\nCS selalu siap bantu bosku!"
+];
+
+const thanksResponses = [
+    "Sama-sama bosku! 😊 Senang bisa membantu. Kalau ada pertanyaan lain, jangan ragu ya! CS Online 24 jam selalu siap melayani bosku.",
+    "Terima kasih kembali bosku! 🔥 Semoga beruntung bermainnya! Ada yang mau ditanya lagi?",
+    "Dengan senang hati bosku! 😊 Jangan sungkan kalau butuh bantuan lagi ya. Good luck bosku!"
+];
+
+const notUnderstandResponses = [
+    "Bosku, mohon maaf saya belum bisa memahami pesan tersebut. 😅 Bisa dijelaskan lebih detail atau dengan kata kunci yang lebih spesifik?",
+    "Maaf bosku, bisa diulangi atau dijelaskan lebih rinci? 😊 Supaya saya bisa bantu dengan tepat."
+];
+
+// =============================================
+// LOGIC ENGINE
+// =============================================
+
+function findBestMatch(input) {
+    const lower = input.toLowerCase().trim();
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const entry of knowledgeBase) {
+        let score = 0;
+        for (const keyword of entry.keywords) {
+            if (lower.includes(keyword.toLowerCase())) {
+                // Kata kunci yang lebih panjang = lebih spesifik = skor lebih tinggi
+                score += keyword.length;
+                // Bonus jika persis sama
+                if (lower === keyword.toLowerCase()) score += 20;
+                // Bonus jika di awal kalimat
+                if (lower.startsWith(keyword.toLowerCase())) score += 5;
+            }
+        }
+        if (score > bestScore) {
+            bestScore = score;
+            bestMatch = entry;
+        }
+    }
+
+    return { match: bestMatch, score: bestScore };
+}
+
+function isGreeting(input) {
+    const lower = input.toLowerCase().trim();
+    const greets = ["halo", "hai", "hi", "hello", "hey", "selamat", "pagi", "siang", "sore", "malam", "assalamualaikum", "bro", "boss", "bos", "cs", "admin", "permisi", "pagi bosku", "malam bosku", "siang bosku"];
+    return greets.some(g => lower === g || lower.startsWith(g) && lower.length < 20);
+}
+
+function isThanks(input) {
+    const lower = input.toLowerCase().trim();
+    const thanks = ["terima kasih", "makasih", "thanks", "thank you", "thx", "trs", "tks", "tkn", "suwun", "nuhun", "maturnuwun", "syukron", "ok", "oke", "sip", "siap", "paham", "mengerti", "udah", "sudah", "ga usah", "gak usah", "tidak usah"];
+    return thanks.some(t => lower.includes(t));
+}
+
+function generateResponse(input) {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+
+    // Cek greeting
+    if (isGreeting(trimmed)) {
+        return greetings[Math.floor(Math.random() * greetings.length)];
+    }
+
+    // Cek thanks
+    if (isThanks(trimmed) && trimmed.length < 30) {
+        return thanksResponses[Math.floor(Math.random() * thanksResponses.length)];
+    }
+
+    // Cek knowledge base
+    const { match, score } = findBestMatch(trimmed);
+    if (match && score >= 3) {
+        return match.response;
+    }
+
+    // Jika terlalu pendek dan tidak dikenali
+    if (trimmed.length < 4) {
+        return notUnderstandResponses[Math.floor(Math.random() * notUnderstandResponses.length)];
+    }
+
+    // Fallback
+    return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+}
+
+// =============================================
+// UI ENGINE
+// =============================================
+
+const chatBody = document.getElementById('chatBody');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const typingIndicator = document.getElementById('typingIndicator');
+const scrollBtn = document.getElementById('scrollBtn');
+
+// Set tanggal
+function setDateLabel() {
+    const now = new Date();
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('dateLabel').textContent = now.toLocaleDateString('id-ID', options);
+}
+setDateLabel();
+
+function getTime() {
+    const now = new Date();
+    return now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatMessage(text) {
+    // Bold
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Line breaks
+    text = text.replace(/\n/g, '<br>');
+    return text;
+}
+
+function addMessage(text, sender, animate = true) {
+    const row = document.createElement('div');
+    row.className = `msg-row ${sender}`;
+    if (!animate) row.style.animation = 'none';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar';
+    avatar.textContent = sender === 'bot' ? 'CS' : 'ME';
+
+    const content = document.createElement('div');
+    content.className = 'msg-content';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.innerHTML = formatMessage(text);
+
+    const time = document.createElement('div');
+    time.className = 'msg-time';
+    time.textContent = getTime();
+
+    content.appendChild(bubble);
+    content.appendChild(time);
+    row.appendChild(avatar);
+    row.appendChild(content);
+    chatBody.appendChild(row);
+    scrollToBottom();
+}
+
+function showQuickReplies(replies) {
+    const container = document.createElement('div');
+    container.className = 'quick-replies';
+    replies.forEach(text => {
+        const btn = document.createElement('button');
+        btn.className = 'quick-btn';
+        btn.textContent = text;
+        btn.onclick = () => {
+            container.remove();
+            handleUserMessage(text);
+        };
+        container.appendChild(btn);
+    });
+    chatBody.appendChild(container);
+    scrollToBottom();
+}
+
+function showTyping() {
+    typingIndicator.classList.add('show');
+    scrollToBottom();
+}
+
+function hideTyping() {
+    typingIndicator.classList.remove('show');
+}
+
+function scrollToBottom() {
+    requestAnimationFrame(() => {
+        chatBody.scrollTop = chatBody.scrollHeight;
+    });
+}
+
+// Scroll button visibility
+chatBody.addEventListener('scroll', () => {
+    const diff = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
+    scrollBtn.classList.toggle('show', diff > 100);
+});
+
+function handleUserMessage(text) {
+    addMessage(text, 'user');
+    chatInput.value = '';
+    autoResize(chatInput);
+    sendBtn.disabled = true;
+
+    showTyping();
+
+    // Simulasi delay berdasarkan panjang jawaban
+    const response = generateResponse(text);
+    const delay = Math.min(800 + (response ? response.length * 3 : 500), 2500);
+
+    setTimeout(() => {
+        hideTyping();
+        addMessage(response, 'bot');
+
+        // Quick replies berdasarkan konteks
+        setTimeout(() => {
+            const lower = text.toLowerCase();
+            if (isGreeting(text)) {
+                showQuickReplies(['Cara daftar', 'Deposit', 'Game apa saja?', 'Bonus new member']);
+            } else if (lower.includes('togel') && !lower.includes('hadiah') && !lower.includes('diskon') && !lower.includes('pasang') && !lower.includes('colok') && !lower.includes('shio')) {
+                showQuickReplies(['Cara pasang togel', 'Hadiah & diskon', 'Colok bebas/jitu', 'Shio togel']);
+            } else if (lower.includes('bola') && !lower.includes('parlay') && !lower.includes('handicap') && !lower.includes('over') && !lower.includes('under')) {
+                showQuickReplies(['Mix Parlay', 'Handicap/Voor', 'Over/Under', 'Minimal bet']);
+            } else if (lower.includes('casino') && !lower.includes('baccarat') && !lower.includes('roulette') && !lower.includes('sic bo') && !lower.includes('dadu') && !lower.includes('dragon')) {
+                showQuickReplies(['Baccarat', 'Roulette', 'Sic Bo / Dadu', 'Dragon Tiger']);
+            } else if (lower.includes('slot') && !lower.includes('gacor') && !lower.includes('rtp') && !lower.includes('pola')) {
+                showQuickReplies(['Slot gacor', 'RTP slot', 'Minimal bet', 'Provider slot']);
+            } else if (lower.includes('poker') || lower.includes('domino') || lower.includes('qiu') || lower.includes('ceme') || lower.includes('bandarq')) {
+                showQuickReplies(['Texas Poker', 'DominoQQ', 'BandarQ', 'Bandar Ceme']);
+            }
+        }, 300);
+    }, delay);
+}
+
+function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    handleUserMessage(text);
+}
+
+function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+}
+
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+    sendBtn.disabled = !el.value.trim();
+}
+
+function clearChat() {
+    chatBody.innerHTML = `<div class="date-sep"><span id="dateLabel"></span></div>`;
+    setDateLabel();
+    setTimeout(() => {
+        showTyping();
+        setTimeout(() => {
+            hideTyping();
+            addMessage("Chat telah direset. Ada yang bisa saya bantu, bosku? 😊", 'bot');
+            showQuickReplies(['Cara daftar', 'Game apa saja?', 'Deposit', 'Bonus']);
+        }, 800);
+    }, 300);
+}
+
+// Initial greeting
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        showTyping();
+        setTimeout(() => {
+            hideTyping();
+            addMessage(greetings[0], 'bot');
+            setTimeout(() => {
+                showQuickReplies(['Cara daftar', 'Game apa saja?', 'Deposit', 'Bonus new member']);
+            }, 300);
+        }, 1200);
+    }, 500);
+});
+
+// Focus input
+chatInput.focus();
+</script>
+</body>
+</html>
